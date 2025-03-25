@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -18,7 +19,9 @@ builder.Services.AddDbContext<ScreenSoundContext>((options) =>
            .UseLazyLoadingProxies();
 });
 
-builder.Services.AddIdentityApiEndpoints<PessoaComAcesso>().AddEntityFrameworkStores<ScreenSoundContext>();
+builder.Services.AddIdentityApiEndpoints<PessoaComAcesso>().AddEntityFrameworkStores<ScreenSoundContext>(); // builder para o identity
+
+builder.Services.AddAuthorization(); 
 
 builder.Services.AddDbContext<ScreenSoundContext>();
 builder.Services.AddTransient<DAL<Artista>>();
@@ -37,8 +40,12 @@ builder.Services.AddCors(options => options.AddPolicy(
             .SetIsOriginAllowed(pol => true)
             .AllowAnyHeader()
             .AllowCredentials()));
+
 var app = builder.Build();
 app.UseCors("wasm");
+
+app.UseStaticFiles();//aqui falo pra minha api que minha aplicação vai usar arquivos estaticos 
+app.UseAuthorization(); //etapa de tratamento da requisição HTTP para os endpoints da aplicação
 
 //endpoint de negocio 
 app.AddEndPointsArtistas();
@@ -47,9 +54,15 @@ app.AddEndPointGeneros();
 
 app.MapGroup("auth").MapIdentityApi<PessoaComAcesso>().WithTags("Autorização"); //agrupa vario endpoints em cima de uma roda 
 
+app.MapPost("auth/logout", async ([FromServices] SignInManager<PessoaComAcesso> signInManager) =>
+{
+    await signInManager.SignOutAsync();
+    return Results.Ok();
+}).RequireAuthorization().WithTags("Autorização");
+
 app.UseSwagger();
 app.UseSwaggerUI();
 
-app.UseStaticFiles();//aqui falo pra minha api que minha aplicação vai usar arquivos estaticos 
+
 
 app.Run();
